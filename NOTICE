@@ -1,0 +1,75 @@
+NOTICE
+======
+
+The source in this repository is MIT licensed — see LICENSE. That covers every first-party
+file here: the Go library in Go/wabridge, the XPCWhatsMeow, XPCWhatsMeowProtocol and
+XPCWhatsMeowServiceKit modules, the XPC service's main.swift, the demo app, the tests, the
+scripts and the documentation.
+
+What a *built* service contains is a different matter, and it is the one that has
+consequences when you ship.
+
+
+A built XPCWhatsMeowService.xpc is GPL v3
+-----------------------------------------
+
+The service statically links whatsmeow and its dependencies, fetched by Go at build time
+(see Go/wabridge/go.mod and go.sum — none of them is redistributed in this repository).
+Two of them are copyleft:
+
+| Module                | Licence                           |
+|-----------------------|-----------------------------------|
+| go.mau.fi/libsignal   | GPL v3                            |
+| go.mau.fi/whatsmeow   | MPL 2.0                           |
+| go.mau.fi/util        | MPL 2.0                           |
+| everything else       | MIT, BSD, ISC or Apache 2.0       |
+
+libsignal decides the outcome: the service binary is a combined work that includes it, so
+the **binary** must be distributed under the GPL v3, whatever the licence of the sources
+that went into it. MIT and MPL 2.0 are both compatible with that. Shipping the .xpc inside
+an application means distributing that binary, with the obligations that carries: keep its
+notices, ship the licence texts, and make the corresponding source available. The service
+bundle carries the texts itself (Contents/Resources: GPL-3.0.txt, MPL-2.0.txt,
+ThirdPartyLicenses.txt, NOTICE), and this repository, being public, is the source.
+
+ThirdPartyLicenses.txt is generated from go.sum by scripts/build-xcframework.sh and lists
+every module linked into the service, with its version and licence text, plus the Go
+runtime's.
+
+
+Nothing else contains whatsmeow
+-------------------------------
+
+The XPCWhatsMeow and XPCWhatsMeowProtocol modules — the parts an application links — contain
+no whatsmeow, libsignal or Go code at all. An application talks to the service over XPC:
+messages between two processes, carrying JSON. No shared address space, no shared data
+structures, no whatsmeow headers or types anywhere in the client.
+
+That is the line the GPL itself draws. The FSF puts the boundary of a program at the address
+space: modules linked into one executable are one program, while pipes, sockets and messages
+between processes are "communication mechanisms normally used between two separate
+programs". This project is built to sit on the far side of that line, and you can check it on
+the binaries:
+
+    nm YourApp.app/Contents/MacOS/YourApp | grep -c 'go.mau.fi'                                  # 0
+    nm YourApp.app/Contents/XPCServices/XPCWhatsMeowService.xpc/Contents/MacOS/XPCWhatsMeowService \
+        | grep -c 'go.mau.fi/libsignal'                                                         # hundreds
+
+So an application that uses this service does not have to publish its own source. It ships a
+GPL program beside a proprietary one, which is the ordinary case of shipping any GPL tool with
+your software.
+
+Do not link XPCWhatsMeowServiceKit into an application. It exists for the service (and this
+package's tests); linking it anywhere else puts libsignal in that binary.
+
+
+WhatsApp
+--------
+
+WhatsApp offers no official API for personal accounts. whatsmeow implements the protocol
+WhatsApp's own web and desktop clients use, as a linked companion device. WhatsApp's terms
+do not permit unofficial clients, and WhatsApp may restrict or ban accounts that use them —
+particularly accounts that send in bulk or to people who have not messaged them. That is a
+risk for you and your users to weigh; no licence covers it.
+
+This project is not affiliated with or endorsed by WhatsApp or Meta.

@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: Go/wabridge/go.mod
+          cache-dependency-path: Go/wabridge/go.sum
+      - name: Go tests
+        working-directory: Go/wabridge
+        run: go test ./...
+      - name: Build the Go library
+        run: scripts/build-xcframework.sh
+      - name: Swift tests
+        run: swift test

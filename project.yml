@@ -1,0 +1,66 @@
+name: XPCWhatsMeowService
+options:
+  bundleIdPrefix: com.siliconink
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_HARDENED_RUNTIME: true
+    DEAD_CODE_STRIPPING: true
+    # Sign to run locally. An app embedding the service signs it with its own identity.
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+
+packages:
+  XPCWhatsMeowService:
+    path: .
+
+targets:
+  # The service. The only target whose binary contains whatsmeow — and so the only GPL one.
+  XPCWhatsMeowService:
+    type: xpc-service
+    platform: macOS
+    sources:
+      - XPCService/main.swift
+      - path: XPCService/Licenses
+        buildPhase: resources
+      - path: NOTICE
+        buildPhase: resources
+    dependencies:
+      - package: XPCWhatsMeowService
+        product: XPCWhatsMeowServiceKit
+    preBuildScripts:
+      # A no-op unless Go/wabridge changed since the xcframework was built.
+      - name: Build Go library
+        script: |
+          "${SRCROOT}/scripts/build-xcframework.sh"
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.siliconink.XPCWhatsMeowService
+        INFOPLIST_FILE: XPCService/Info.plist
+        # go build writes to the module cache and .build/go — outside a sandboxed phase.
+        ENABLE_USER_SCRIPT_SANDBOXING: false
+        OTHER_LDFLAGS: "-lresolv -framework CoreFoundation -framework Security"
+
+  # A minimal app embedding the service: link by QR code, watch messages arrive.
+  WhatsMeowDemo:
+    type: application
+    platform: macOS
+    sources:
+      - Demo
+    dependencies:
+      - target: XPCWhatsMeowService
+      - package: XPCWhatsMeowService
+        product: XPCWhatsMeow
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.siliconink.WhatsMeowDemo
+        GENERATE_INFOPLIST_FILE: true
+        INFOPLIST_KEY_CFBundleDisplayName: WhatsMeow Demo
+        INFOPLIST_KEY_NSHumanReadableCopyright: "MIT. Embeds XPCWhatsMeowService (GPL v3)."
