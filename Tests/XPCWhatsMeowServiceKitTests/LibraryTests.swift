@@ -62,7 +62,8 @@ struct LibraryTests {
         let listener = NSXPCListener.anonymous()
         listener.delegate = delegate
         listener.resume()
-        defer { listener.invalidate() }
+        // NSXPCListener holds its delegate weakly.
+        defer { withExtendedLifetime(delegate) { listener.invalidate() } }
 
         let client = WhatsMeowClient(endpoint: listener.endpoint)
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("wa xpc \(UUID().uuidString)")
@@ -85,7 +86,8 @@ struct LibraryTests {
         let listener = NSXPCListener.anonymous()
         listener.delegate = delegate
         listener.resume()
-        defer { listener.invalidate() }
+        // NSXPCListener holds its delegate weakly.
+        defer { withExtendedLifetime(delegate) { listener.invalidate() } }
 
         let codes = CodeBox()
         let client = WhatsMeowClient(endpoint: listener.endpoint)
