@@ -56,7 +56,7 @@ CLANG="$(xcrun --sdk macosx --find clang)"
 
 build_arch() {
     local goarch="$1" clangarch="$2"
-    echo "Building wabridge for $clangarch…"
+    echo "Building wabridge for ${clangarch}…"
     (
         cd "$SRC"
         CGO_ENABLED=1 GOOS=darwin GOARCH="$goarch" \
