@@ -38,6 +38,7 @@ Result: `{"accounts": ["15551234567", …]}` — or, from the XPC service when i
 | `groups` | `{account}` | `[{jid, name, topic?, created?, owner?, isAnnounce, isLocked, participantCount}]` |
 | `group_info` | `{account, jid}` | as `groups`, plus `participants: [{jid, phone?, lid?, isAdmin, isSuperAdmin, displayName?}]` |
 | `resolve` | `{account, phones}` | `[{query, jid, isOnWhatsApp}]` |
+| `phones_for_lids` | `{account, lids}` | `[{lid, phone}]` — only the LIDs whatsmeow has a phone number for; read from its store, nothing sent |
 
 Notes:
 
@@ -47,6 +48,10 @@ Notes:
   cannot have a caption. `thumbnail` is a small JPEG, base64.
 - `react` and `mark_read` take the chat and sender **as received** — `rawChat`/`rawSender` when a
   message has them.
+- Chats and senders are phone-number JIDs where the LID mapping is known when a message is
+  converted. History sync saves its blob's mappings before converting it, but a chat whose number
+  WhatsApp only revealed later stays a LID in what was already emitted: `phones_for_lids` lets the
+  client re-file those.
 - `download`'s `raw` is a message's `media.raw`, base64. The decrypted file is written to `path`
   (via a `.part` file, renamed into place); `media_expired` means WhatsApp no longer has it.
 

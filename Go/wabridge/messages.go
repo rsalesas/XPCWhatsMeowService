@@ -7,6 +7,8 @@ import (
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/proto/waHistorySync"
+	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
@@ -284,6 +286,17 @@ func (b *bridge) handleHistorySync(ctx context.Context, acct *account, evt *even
 	data := evt.Data
 	chats := []chatInfo{}
 
+	// whatsmeow saves this blob's LID→phone mappings itself, but on a goroutine of
+	// its own that races this handler, so chats normalised here could miss them and
+	// stay stored under a bare privacy ID. Saving them first (the write is idempotent)
+	// makes every pnFor below, and every later message, see them.
+	if mappings := historyMappings(data); len(mappings) > 0 {
+		if err := acct.client.Store.LIDs.PutManyLIDMappings(ctx, mappings); err != nil {
+			b.emit(map[string]any{"type": "log", "level": "warn", "module": "wabridge",
+				"message": fmt.Sprintf("could not store %d LID mappings from history: %v", len(mappings), err)})
+		}
+	}
+
 	for _, conv := range data.GetConversations() {
 		chatJID, err := types.ParseJID(conv.GetID())
 		if err != nil || chatJID.Server == types.NewsletterServer ||
@@ -293,7 +306,10 @@ func (b *bridge) handleHistorySync(ctx context.Context, acct *account, evt *even
 		isGroup := chatJID.Server == types.GroupServer
 		normalized := chatJID
 		if !isGroup {
-			normalized = pnFor(ctx, acct.client, chatJID, types.EmptyJID)
+			// The conversation names its own phone number when WhatsApp sent it,
+			// which covers a mapping the blob's table left out.
+			alt, _ := types.ParseJID(conv.GetPnJID())
+			normalized = pnFor(ctx, acct.client, chatJID, normalizePN(alt))
 		}
 		name := conv.GetName()
 		if name == "" {
@@ -326,6 +342,45 @@ func (b *bridge) handleHistorySync(ctx context.Context, acct *account, evt *even
 		"type": "history_progress", "account": id,
 		"syncType": data.GetSyncType().String(), "progress": data.GetProgress(),
 	})
+}
+
+// historyMappings collects every LID→phone pair a history blob carries: its mapping
+// table, and each conversation's own lidJID/pnJID.
+func historyMappings(data *waHistorySync.HistorySync) []store.LIDMapping {
+	seen := map[types.JID]bool{}
+	out := []store.LIDMapping{}
+	add := func(lidString, pnString string) {
+		lid, err1 := types.ParseJID(lidString)
+		pn, err2 := types.ParseJID(pnString)
+		if err1 != nil || err2 != nil || lid.Server != types.HiddenUserServer {
+			return
+		}
+		pn = normalizePN(pn)
+		if pn.Server != types.DefaultUserServer || seen[lid] {
+			return
+		}
+		seen[lid] = true
+		out = append(out, store.LIDMapping{LID: lid.ToNonAD(), PN: pn.ToNonAD()})
+	}
+	for _, m := range data.GetPhoneNumberToLidMappings() {
+		add(m.GetLidJID(), m.GetPnJID())
+	}
+	for _, conv := range data.GetConversations() {
+		lid := conv.GetLidJID()
+		if lid == "" {
+			lid = conv.GetID()
+		}
+		add(lid, conv.GetPnJID())
+	}
+	return out
+}
+
+// normalizePN maps the legacy "c.us" server to the one whatsmeow uses.
+func normalizePN(jid types.JID) types.JID {
+	if jid.Server == types.LegacyUserServer {
+		jid.Server = types.DefaultUserServer
+	}
+	return jid
 }
 
 // MARK: - Receipts

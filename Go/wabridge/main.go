@@ -348,6 +348,8 @@ func (b *bridge) dispatch(method string, raw []byte) (any, error) {
 		return call(raw, b.groupInfo)
 	case "resolve":
 		return call(raw, b.resolve)
+	case "phones_for_lids":
+		return call(raw, b.phonesForLIDs)
 	default:
 		return nil, fail("unknown_method", "unknown bridge method %q", method)
 	}

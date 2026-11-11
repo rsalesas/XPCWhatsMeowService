@@ -83,6 +83,39 @@ func (b *bridge) resolve(args resolveArgs) (any, error) {
 	return out, nil
 }
 
+type lidsArgs struct {
+	Account string   `json:"account"`
+	LIDs    []string `json:"lids"`
+}
+
+// phonesForLIDs answers, from whatsmeow's own store, which phone number each LID stands
+// for. Only known pairs come back. Swift asks about the chats and senders it stored
+// under a LID because the mapping was not known yet when their messages arrived, so it
+// can file them under the phone number from then on. Nothing goes over the network:
+// it works while disconnected, and asks WhatsApp nothing about anyone.
+func (b *bridge) phonesForLIDs(args lidsArgs) (any, error) {
+	acct, err := b.lookup(args.Account)
+	if err != nil {
+		return nil, err
+	}
+	ctx := context.Background()
+	out := []map[string]string{}
+	for _, raw := range args.LIDs {
+		lid, err := types.ParseJID(raw)
+		if err != nil || lid.Server != types.HiddenUserServer {
+			return nil, fail("invalid_argument", "%q is not a LID", raw)
+		}
+		pn, err := acct.client.Store.LIDs.GetPNForLID(ctx, lid.ToNonAD())
+		if err != nil {
+			return nil, fail("database", "could not read the LID map: %v", err)
+		}
+		if !pn.IsEmpty() {
+			out = append(out, map[string]string{"lid": lid.ToNonAD().String(), "phone": pn.ToNonAD().String()})
+		}
+	}
+	return out, nil
+}
+
 // MARK: - Sending
 
 // replyRef identifies the message being quoted. Swift supplies the text it has stored so

@@ -205,6 +205,13 @@ public final class WhatsMeowClient: @unchecked Sendable {
         return try await call("resolve", Args(account: account, phones: phones))
     }
 
+    /// The phone numbers whatsmeow knows these LIDs stand for — only the known ones come
+    /// back. Read from its store; nothing is sent to WhatsApp.
+    public func phonesForLIDs(account: String, lids: [String]) async throws -> [WhatsMeowLIDMapping] {
+        struct Args: Encodable { let account: String; let lids: [String] }
+        return try await call("phones_for_lids", Args(account: account, lids: lids))
+    }
+
     // MARK: - XPC
 
     private func sendStart(_ options: WhatsMeowStartOptions) async throws -> Data {

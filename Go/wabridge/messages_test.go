@@ -5,6 +5,7 @@ import (
 
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -124,6 +125,40 @@ func TestDigits(t *testing.T) {
 	} {
 		if got := digits(in); got != want {
 			t.Errorf("digits(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestHistoryMappingsFromTableAndConversations(t *testing.T) {
+	data := &waHistorySync.HistorySync{
+		PhoneNumberToLidMappings: []*waHistorySync.PhoneNumberToLIDMapping{
+			{LidJID: proto.String("111@lid"), PnJID: proto.String("15550001111@s.whatsapp.net")},
+			{LidJID: proto.String("not-a-jid@"), PnJID: proto.String("x")},
+		},
+		Conversations: []*waHistorySync.Conversation{
+			// A LID chat naming its own number, in the legacy c.us form.
+			{ID: proto.String("222@lid"), PnJID: proto.String("15550002222@c.us")},
+			// Repeats the table's pair: reported once.
+			{ID: proto.String("15550001111@s.whatsapp.net"), LidJID: proto.String("111@lid"), PnJID: proto.String("15550001111@s.whatsapp.net")},
+			// A group, and a LID chat with no number: nothing to learn.
+			{ID: proto.String("123-456@g.us")},
+			{ID: proto.String("333@lid")},
+		},
+	}
+	got := map[string]string{}
+	for _, m := range historyMappings(data) {
+		got[m.LID.String()] = m.PN.String()
+	}
+	want := map[string]string{
+		"111@lid": "15550001111@s.whatsapp.net",
+		"222@lid": "15550002222@s.whatsapp.net",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for lid, pn := range want {
+		if got[lid] != pn {
+			t.Errorf("%s → %q, want %q", lid, got[lid], pn)
 		}
 	}
 }

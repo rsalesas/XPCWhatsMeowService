@@ -205,6 +205,17 @@ public struct WhatsMeowLookup: Codable, Sendable, Equatable {
     public var isOnWhatsApp: Bool
 }
 
+/// A LID and the phone-number JID whatsmeow knows it stands for.
+public struct WhatsMeowLIDMapping: Codable, Sendable, Equatable {
+    public let lid: String
+    public let phone: String
+
+    public init(lid: String, phone: String) {
+        self.lid = lid
+        self.phone = phone
+    }
+}
+
 /// How `start` configures the library.
 public struct WhatsMeowStartOptions: Codable, Sendable, Equatable {
     /// whatsmeow's session database: every linked device's keys. Treat it as a credential.
