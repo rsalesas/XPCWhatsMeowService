@@ -195,7 +195,7 @@ func (b *bridge) sendText(args sendTextArgs) (any, error) {
 	}
 	resp, err := acct.client.SendMessage(ctx, to, msg)
 	if err != nil {
-		return nil, fail("send_failed", "WhatsApp did not accept the message: %v", err)
+		return nil, sendError("message", err)
 	}
 	return b.sent(acct, to, resp, msg), nil
 }
@@ -300,7 +300,7 @@ func (b *bridge) sendMedia(args sendMediaArgs) (any, error) {
 
 	resp, err := acct.client.SendMessage(ctx, to, msg)
 	if err != nil {
-		return nil, fail("send_failed", "WhatsApp did not accept the message: %v", err)
+		return nil, sendError("message", err)
 	}
 	return b.sent(acct, to, resp, msg), nil
 }
@@ -334,7 +334,7 @@ func (b *bridge) react(args reactArgs) (any, error) {
 	msg := acct.client.BuildReaction(chat, sender, args.ID, args.Emoji)
 	resp, err := acct.client.SendMessage(ctx, chat, msg)
 	if err != nil {
-		return nil, fail("send_failed", "WhatsApp did not accept the reaction: %v", err)
+		return nil, sendError("reaction", err)
 	}
 	return b.sent(acct, chat, resp, msg), nil
 }
@@ -590,4 +590,15 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// sendError reports a failed SendMessage. When WhatsApp's server answered the send with an
+// error code, it refused the message and nothing was delivered: send_refused, so a caller
+// can tell it apart from send_failed, which includes a send that timed out after leaving
+// and may have arrived.
+func sendError(what string, err error) *bridgeError {
+	if errors.Is(err, whatsmeow.ErrServerReturnedError) {
+		return fail("send_refused", "WhatsApp refused the %s: %v", what, err)
+	}
+	return fail("send_failed", "WhatsApp did not accept the %s: %v", what, err)
 }

@@ -59,6 +59,7 @@ Notes:
 
 `not_started`, `already_started`, `unknown_method`, `invalid_argument`, `unknown_account`,
 `not_connected`, `invalid_recipient`, `lookup_failed`, `not_on_whatsapp`, `send_failed`,
+`send_refused` (the server answered the send with an error code, so nothing was delivered),
 `upload_failed`, `file_unreadable`, `download_failed`, `media_expired`, `write_failed`,
 `request_failed`, `pairing_failed`, `connect_failed`, `database`, `panic` — and, from the client,
 `service_unavailable` and `decoding`.
